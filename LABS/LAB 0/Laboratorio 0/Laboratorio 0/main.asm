@@ -1,0 +1,47 @@
+;
+; Laboratorio 0.asm
+;
+; Created: 1/23/2026 4:45:54 PM
+; Author : Jorge Puente
+;
+
+.include "M328PDEF.inc"
+.equ LED_PIN = 0 //Def PIN
+.dseg
+.cseg
+.org 0x0000 //Dirección de Inicio
+rjmp PILA
+
+PILA:
+LDI R16, LOW(RAMEND)
+OUT SPL, R16
+LDI R16, HIGH(RAMEND)
+OUT SPH, R16
+
+SBI DDRB, LED_PIN //Salida
+
+MAIN:
+SBI PORTB, LED_PIN //5V
+RCALL DELAY_1S
+
+CBI PORTB, LED_PIN //0V
+RCALL DELAY_1S
+
+RJMP MAIN
+
+DELAY_1S:
+LDI R18, 100
+DELAY_1: 
+LDI R19, 255
+DELAY_2:
+LDI R20, 255
+
+
+DELAY_3: 
+DEC R20 //-1
+BRNE DELAY_3 //Z
+DEC R19
+BRNE DELAY_2
+DEC R18
+BRNE DELAY_1
+RET
