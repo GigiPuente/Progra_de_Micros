@@ -1,0 +1,250 @@
+/*
+* PreLab 2.asm
+*
+* Creado: 
+* Autor : Jorge Puente
+* Descripción: contador binario 4 bits (100ms)
+*/
+/****************************************/
+// Encabezado (Definición de Registros, Variables y Constantes)
+.include "M328PDEF.inc"
+.dseg
+.org    SRAM_START
+
+.cseg
+.org 0x0000
+
+/****************************************/
+// Configuración de la pila
+LDI     R16, LOW(RAMEND)
+OUT     SPL, R16
+LDI     R16, HIGH(RAMEND)
+OUT     SPH, R16
+
+/****************************************/
+// Configuracion MCU
+SETUP:
+	LDI R16,0x0F
+    OUT DDRC,R16
+
+	//LEDs
+    SBI	DDRC,0 
+    SBI DDRC,1      
+    SBI DDRC,2      
+    SBI DDRC,3
+
+	//7S
+	SBI	DDRD,0
+    SBI DDRD,1      
+    SBI DDRD,2      
+    SBI DDRD,3      
+	SBI	DDRD,4
+    SBI DDRD,5      
+    SBI DDRD,6
+	
+	//Botones
+    CBI DDRB,2
+    CBI DDRB,3 
+
+	//Alarma
+	SBI DDRB,4
+	CBI PORTB,4
+
+	 
+	SBI PORTB,2
+    SBI PORTB,3
+	
+	CLR R21
+	CLR R17
+	OUT PORTC, R17 
+
+/****************************************/
+// Loop Infinito
+MAIN_LOOP:
+	//C1
+	LDI R20,100
+
+WAIT_10S:
+	RCALL	BOTON
+	RCALL	DELAY_100MS
+	DEC		R20
+	BRNE	WAIT_10S
+
+	RCALL	INCC1
+    RJMP	MAIN_LOOP
+
+
+/****************************************/
+// NON-Interrupt subroutines
+BOTON:
+    IN R18,PINB
+
+    SBRS R18,2
+    RJMP CHECK_INC
+    CBR R23,(1<<2)
+    RJMP CHECK_DEC
+
+CHECK_INC:
+    SBRS R23,2
+    RCALL INCC2
+    SBR R23,(1<<2)
+
+CHECK_DEC:
+    SBRS R18,3
+    RJMP DEC_PRESS
+    CBR R23,(1<<3)
+    RET
+
+DEC_PRESS:
+    SBRS R23,3
+    RCALL DECC2
+    SBR R23,(1<<3)
+    RET
+
+INCC2:
+	INC R21
+	ANDI R21,0x0F
+	RCALL DISPLAY
+	RET
+
+DECC2:
+	DEC R21
+	ANDI R21,0x0F
+	RCALL DISPLAY
+	RET
+
+DISPLAY:
+	CPI R21, 0x00
+	BREQ CERO
+	CPI R21, 0x01
+	BREQ UNO
+	CPI R21, 0x02
+	BREQ DOS
+	CPI R21, 0x03
+	BREQ TRES
+	CPI R21, 0x04
+	BREQ CUATRO
+	CPI R21, 0x05
+	BREQ CINCO
+	CPI R21, 0x06
+	BREQ SEIS
+	CPI R21, 0x07
+	BREQ SIETE
+	CPI R21, 0x08
+	BREQ OCHO
+	CPI R21, 0x09
+	BREQ NUEVE
+	CPI R21, 0x0A
+	BREQ A
+	CPI R21, 0x0B
+	BREQ B
+	CPI R21, 0x0C
+	BREQ C
+	CPI R21, 0x0D
+	BREQ D
+	CPI R21, 0x0E
+	BREQ E
+	CPI R21, 0x0F
+	BREQ F
+	RET
+
+CERO:
+	LDI R22, 0b00111111
+	OUT PORTD, R22
+	RET
+UNO:
+	LDI R22, 0b00000110
+	OUT PORTD, R22
+	RET
+DOS:
+	LDI R22, 0b01011011
+	OUT PORTD, R22
+	RET
+TRES:
+	LDI R22, 0b01001111
+	OUT PORTD, R22
+	RET
+CUATRO:
+	LDI R22, 0b01100110
+	OUT PORTD, R22
+	RET
+CINCO:
+	LDI R22, 0b01101101
+	OUT PORTD, R22
+	RET
+SEIS:
+	LDI R22, 0b01111101
+	OUT PORTD, R22
+	RET
+SIETE:
+	LDI R22, 0b00000111
+	OUT PORTD, R22
+	RET
+OCHO:
+	LDI R22, 0b01111111
+	OUT PORTD, R22
+	RET
+NUEVE:
+	LDI R22, 0b01101111
+	OUT PORTD, R22
+	RET
+A:
+	LDI R22, 0b01110111
+	OUT PORTD, R22
+	RET
+B:
+	LDI R22, 0b01111100
+	OUT PORTD, R22
+	RET
+C:
+	LDI R22, 0b00111001
+	OUT PORTD, R22
+	RET
+D:
+	LDI R22, 0b01011110
+	OUT PORTD, R22
+	RET
+E:
+	LDI R22, 0b01111001
+	OUT PORTD, R22
+	RET
+F:
+	LDI R22, 0b01110001
+	OUT PORTD, R22
+	RET
+
+INCC1:
+	INC R17
+	ANDI R17,0x0F
+	OUT PORTC, R17
+
+	CP R17,R21
+	BRNE NEI
+
+	SBI PORTB,4
+	CLR R17
+	OUT PORTC,R17
+	RET
+
+NEI:
+	CBI PORTB,4
+	RET
+
+DELAY_100MS:
+    LDI R19, 61
+    OUT TCNT0, R19
+
+    LDI R19, (1<<CS02)|(1<<CS00)
+    OUT TCCR0B, R19
+
+EOF:
+    SBIS TIFR0, TOV0
+    RJMP EOF
+
+    LDI R19, (1<<TOV0)
+    OUT TIFR0, R19
+
+    LDI R19, 0x00
+    OUT TCCR0B, R19
+
+    RET
