@@ -82,15 +82,19 @@ MAIN_LOOP:
 	LDS     R16, contador
 	OUT     PORTC, R16
 
+	CBI     PORTC, PC4
 	CBI     PORTC, PC5
-	SBI     PORTC, PC4
+
 	LDS     R16, unidades
 	RCALL   TABLA_7S
+	SBI     PORTC, PC4
 
 	CBI     PORTC, PC4
-	SBI     PORTC, PC5
+	CBI     PORTC, PC5
+
 	LDS     R16, decenas
 	RCALL   TABLA_7S
+	SBI     PORTC, PC5
 
 	RJMP    MAIN_LOOP
 
