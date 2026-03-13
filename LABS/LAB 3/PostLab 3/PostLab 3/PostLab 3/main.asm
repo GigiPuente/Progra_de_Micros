@@ -1,256 +1,155 @@
 /*
-* Lab3.asm
+* NombreProgra.asm
 *
-* Creado: Jorge Puente
-* Autor :
-* Descripción: 
+* Creado: 
+* Autor : 
+* Descripción: Reloj con base de tiempo de 1 segundo
 */
 /****************************************/
+// Encabezado
 .include "M328PDEF.inc"
 
 .dseg
 .org SRAM_START
 
-contador:      .byte 1
-EAN:           .byte 1
-unidades:      .byte 1
-decenas:       .byte 1
-delay:         .byte 1  
+segundos:  .byte 1
+minutos:   .byte 1
+horas:     .byte 1
 
-/****************************************/
 .cseg
 .org 0x0000
+    RJMP RESET
 
-RJMP SETUP
-
-.org 0x0006                    
-RJMP INTER_PB
-
-.org 0x001C
-RJMP INTER_TMR
+.org OC1Aaddr
+    RJMP TIMER1_COMPA_ISR
 
 /****************************************/
+// RESET
+RESET:
+
+// Configuración de la pila
+LDI     R16, LOW(RAMEND)
+OUT     SPL, R16
+LDI     R16, HIGH(RAMEND)
+OUT     SPH, R16
+
+/****************************************/
+// Configuracion MCU
 SETUP:
-	LDI     R16, LOW(RAMEND)
-	OUT     SPL, R16
-	LDI     R16, HIGH(RAMEND)
-	OUT     SPH, R16
 
-	LDI     R16, 0b00111111
-	OUT     DDRC, R16
+// Inicializar reloj en 00:00:00
+LDI R16, 0
+STS segundos, R16
+STS minutos, R16
+STS horas, R16
 
-	LDI     R16, 0b01111111
-	OUT     DDRD, R16
+// SEGMENTOS (PD0–PD6) como salida
+LDI     R16, 0b01111111
+OUT     DDRD, R16
 
-	CBI     DDRB, PB0
-	CBI     DDRB, PB1
+LDI     R16, 0x00
+OUT     PORTD, R16
 
-	SBI     PORTB, PB0
-	SBI     PORTB, PB1
+// TRANSISTORES DISPLAYS (PC2–PC5) salida
+LDI     R16, 0b00111100
+OUT     DDRC, R16
 
-	LDI     R16, 0x00
-	STS     contador, R16
-	STS     unidades, R16
-	STS     decenas, R16
-	STS     delay, R16
+LDI     R16, 0x00
+OUT     PORTC, R16
 
-	IN      R16, PINB
-	STS     EAN, R16
+// LEDS (PB2, PB3, PB4) como salida
+LDI     R16, (1<<PB2)|(1<<PB3)|(1<<PB4)
+OUT     DDRB, R16
 
-	LDI     R16, (1<<PCIE0)
-	STS     PCICR, R16
+// Encender LED superior e inferior permanentemente
+LDI     R16, (1<<PB2)|(1<<PB3)
+OUT     PORTB, R16
 
-	LDI     R16, (1<<PCINT0)|(1<<PCINT1)
-	STS     PCMSK0, R16
+// Activar pull-ups en botones PB0, PB1, PB5
+LDI     R16, (1<<PB0)|(1<<PB1)|(1<<PB5)|(1<<PB2)|(1<<PB3)
+OUT     PORTB, R16
 
-	LDI     R16, (1<<WGM01)
-	OUT     TCCR0A, R16
+// Activar pull-ups en PC0 y PC1
+LDI     R16, (1<<PC0)|(1<<PC1)
+OUT     PORTC, R16
 
-	LDI     R16, (1<<CS02)|(1<<CS00)
-	OUT     TCCR0B, R16
+// Configurar Timer1 en modo CTC
+LDI R16, (1<<WGM12)
+STS TCCR1B, R16
 
-	LDI     R16, 155
-	OUT     OCR0A, R16
+// Valor para 1 segundo (16MHz / 1024 = 15625)
+LDI R16, LOW(15624)
+STS OCR1AL, R16
+LDI R16, HIGH(15624)
+STS OCR1AH, R16
 
-	LDI     R16, (1<<OCIE0A)
-	STS     TIMSK0, R16
+// Prescaler 1024
+LDS R16, TCCR1B
+ORI R16, (1<<CS12)|(1<<CS10)
+STS TCCR1B, R16
 
+// Habilitar interrupción por comparación A
+LDI R16, (1<<OCIE1A)
+STS TIMSK1, R16
+
+// Habilitar interrupciones globales
 SEI
 
 /****************************************/
+// Loop Infinito
 MAIN_LOOP:
-	LDS     R16, contador
-	OUT     PORTC, R16
-
-	CBI     PORTC, PC4
-	CBI     PORTC, PC5
-
-	LDS     R16, unidades
-	RCALL   TABLA_7S
-	SBI     PORTC, PC4
-
-	CBI     PORTC, PC4
-	CBI     PORTC, PC5
-
-	LDS     R16, decenas
-	RCALL   TABLA_7S
-	SBI     PORTC, PC5
-
-	RJMP    MAIN_LOOP
+    RJMP MAIN_LOOP
 
 /****************************************/
-TABLA_7S:
-	CPI R16, 0x00
-	BREQ CERO
-	CPI R16, 0x01
-	BREQ UNO
-	CPI R16, 0x02
-	BREQ DOS
-	CPI R16, 0x03
-	BREQ TRES
-	CPI R16, 0x04
-	BREQ CUATRO
-	CPI R16, 0x05
-	BREQ CINCO
-	CPI R16, 0x06
-	BREQ SEIS
-	CPI R16, 0x07
-	BREQ SIETE
-	CPI R16, 0x08
-	BREQ OCHO
-	CPI R16, 0x09
-	BREQ NUEVE
+// INTERRUPCIÓN TIMER1 - 1 segundo
+TIMER1_COMPA_ISR:
 
-CERO:   
-	LDI R16, 0b00111111
-	OUT PORTD, R16
-	RET
-UNO:    
-	LDI R16, 0b00000110
-	OUT PORTD, R16
-	RET
-DOS:    
-	LDI R16, 0b01011011
-	OUT PORTD, R16
-	RET
-TRES:   
-	LDI R16, 0b01001111
-	OUT PORTD, R16
-	RET
-CUATRO: 
-	LDI R16, 0b01100110
-	OUT PORTD, R16
-	RET
-CINCO:  
-	LDI R16, 0b01101101
-	OUT PORTD, R16
-	RET
-SEIS:   
-	LDI R16, 0b01111101
-	OUT PORTD, R16
-	RET
-SIETE:  
-	LDI R16, 0b00000111
-	OUT PORTD, R16
-	RET
-OCHO:   
-	LDI R16, 0b01111111
-	OUT PORTD, R16
-	RET
-NUEVE:  
-	LDI R16, 0b01101111
-	OUT PORTD, R16
-	RET
+PUSH R16
+PUSH R17
 
-/****************************************/
-INTER_PB:
-	PUSH    R16
-	PUSH    R17
-	PUSH    R18
+// Incrementar segundos
+LDS R16, segundos
+INC R16
+CPI R16, 60
+BRLO GUARDAR_SEG
 
-	IN      R16, PINB
-	LDS     R17, EAN
+// Si segundos = 60
+LDI R16, 0
+STS segundos, R16
 
-	MOV     R18, R16
-	EOR     R18, R17
+// Incrementar minutos
+LDS R16, minutos
+INC R16
+CPI R16, 60
+BRLO GUARDAR_MIN
 
-	SBRS    R18, PB0
-	RJMP    RD
+// Si minutos = 60
+LDI R16, 0
+STS minutos, R16
 
-	SBRS    R16, PB0 
-	RCALL   INCC
+// Incrementar horas
+LDS R16, horas
+INC R16
+CPI R16, 24
+BRLO GUARDAR_HORA
 
-RD:
-	SBRS    R18, PB1
-	RJMP    TI_PB
+// Si horas = 24
+LDI R16, 0
 
-	SBRS    R16, PB1
-	RCALL   DECC
+GUARDAR_HORA:
+STS horas, R16
+RJMP FIN_ISR
 
-TI_PB:
-	STS     EAN, R16
+GUARDAR_MIN:
+STS minutos, R16
+RJMP FIN_ISR
 
-	POP     R18
-	POP     R17
-	POP     R16
-	RETI
+GUARDAR_SEG:
+STS segundos, R16
 
-INCC:
-	LDS     R16, contador
-	INC     R16
-	ANDI    R16, 0x0F 
-	STS     contador, R16
-	RET
-
-DECC:
-	LDS     R16, contador
-	DEC     R16
-	ANDI    R16, 0x0F
-	STS     contador, R16
-	RET
-
-/****************************************/
-INTER_TMR:
-	PUSH    R16
-	PUSH    R17
-
-	LDS     R16, delay
-	INC     R16
-	STS     delay, R16
-
-	CPI     R16, 100
-	BRNE    TI_T
-
-	LDI     R16, 0x00
-	STS     delay, R16
-
-	LDS     R17, unidades
-	INC     R17
-	CPI     R17, 10
-	BRNE    GUARDAR
-
-	LDI     R17, 0x00
-	STS     unidades, R17
-
-	LDS     R17, decenas
-	INC     R17
-	CPI     R17, 6
-	BRNE    GUARDAR_DEC
-
-	LDI     R17, 0x00
-	STS     decenas, R17
-	RJMP    TI_T
-
-GUARDAR_DEC:
-	STS     decenas, R17
-	RJMP    TI_T
-
-GUARDAR:
-	STS     unidades, R17
-
-TI_T:
-	POP     R17
-	POP     R16
-	RETI
+FIN_ISR:
+POP R17
+POP R16
+RETI
 
 /****************************************/
